@@ -109,7 +109,8 @@ def requirements_details_gtk():
 def recommends_details_gtk():
     result = {}
     try:
-        import gtk.gtkgl  # noqa F401
+        from gi.repository import Gtk
+        Gtk.GLArea()
         result["gtkgl"] = True
         result["gl"] = True
     except ImportError as err_msg:

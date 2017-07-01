@@ -70,7 +70,7 @@ class OpenGLViewAxes(pycam.Plugins.PluginBase):
             GL.glBegin(GL.GL_LINES)
             GL.glVertex3f(*origin)
             GL.glVertex3f(*end)
-            GL.glEnd()
+            #GL.glEnd()
             # Position the cone slightly behind the end of the line - otherwise
             # the end of the line (width=2) is visible at the top of the cone.
             draw_direction_cone(origin, end, position=1.0 + cone_length, precision=32,

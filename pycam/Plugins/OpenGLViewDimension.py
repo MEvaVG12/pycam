@@ -31,14 +31,14 @@ class OpenGLViewDimension(pycam.Plugins.PluginBase):
 
     def setup(self):
         if self.gui:
-            import pango
+            from gi.repository import Pango as pango
             self.core.register_ui("opengl_window", "Dimension",
                                   self.gui.get_object("DimensionTable"), weight=20)
             self.core.get("register_display_item")("show_dimensions", "Show Dimensions", 60)
             # Color the dimension value according to the axes.
             # For "y" axis: 100% green is too bright on light background - we
             # reduce it a bit.
-            for color, names in (
+            '''for color, names in ( # FIXME
                     (pango.AttrForeground(65535, 0, 0, 0, 100),
                      ("model_dim_x_label", "model_dim_x", "ModelCornerXMax", "ModelCornerXMin",
                       "ModelCornerXSpaces")),
@@ -51,7 +51,7 @@ class OpenGLViewDimension(pycam.Plugins.PluginBase):
                 attributes = pango.AttrList()
                 attributes.insert(color)
                 for name in names:
-                    self.gui.get_object(name).set_attributes(attributes)
+                    self.gui.get_object(name).set_attributes(attributes)'''
             self._event_handlers = (
                 ("model-change-after", self.update_model_dimensions),
                 ("visual-item-updated", self.update_model_dimensions),

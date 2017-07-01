@@ -22,12 +22,13 @@ import math
 
 # careful import
 try:
-    # import gtk.gtkgl
+    from gi.repository import Gtk
+    gl_area = Gtk.GLArea()
     import OpenGL.GL as GL
     import OpenGL.GLU as GLU
     import OpenGL.GLUT as GLUT
     GL_ENABLED = True
-except (ImportError, RuntimeError):
+except (ImportError, RuntimeError) as exc:
     GL_ENABLED = False
 
 # from gi.repository import Gtk as gtk
@@ -171,15 +172,17 @@ class OpenGLWindow(pycam.Plugins.PluginBase):
             # key binding
             self._gtk_handlers.append((self.window, "key-press-event", self.key_handler))
             # OpenGL stuff
-            glconfig = self._gtk.gdkgl.Config(mode=(self._gtk.gdkgl.MODE_RGBA
-                                                    | self._gtk.gdkgl.MODE_DEPTH
-                                                    | self._gtk.gdkgl.MODE_DOUBLE))
-            self.area = self._gtk.gtkgl.DrawingArea(glconfig)
+            #glconfig = self._gdkgl.Config(mode=(self._gdkgl.MODE_RGBA
+            #                                        | self._gdkgl.MODE_DEPTH
+            #                                        | self._gdkgl.MODE_DOUBLE))
+            self.area = self._gtk.GLArea()
+            self._gtk_handlers.append((self.area, 'realize', self.area_realize))
+            self._gtk_handlers.append((self.area, 'render', self._render_area))
             # first run; might also be important when doing other fancy
             # gtk/gdk stuff
 #           self.area.connect_after('realize', self.paint)
             # called when a part of the screen is uncovered
-            self._gtk_handlers.append((self.area, 'expose-event', self.paint))
+            #self._gtk_handlers.append((self.area, 'expose-event', self.paint))
             # resize window
             self._gtk_handlers.append((self.area, 'configure-event', self._resize_window))
             # catch mouse events
@@ -194,8 +197,7 @@ class OpenGLWindow(pycam.Plugins.PluginBase):
                 (self.area, "button-release-event", self.context_menu_handler),
                 (self.area, "scroll-event", self.scroll_handler)))
             self.gui.get_object("OpenGLBox").pack_end(self.area, fill=True, expand=True, padding=0)
-            self.camera = Camera(self.core, lambda: (self.area.allocation.width,
-                                                     self.area.allocation.height))
+            self.camera = Camera(self.core, lambda: (30, 30))
             self._event_handlers = (("visual-item-updated", self.update_view),
                                     ("visualization-state-changed", self._update_widgets),
                                     ("model-list-changed", self._restore_latest_view))
@@ -219,6 +221,12 @@ class OpenGLWindow(pycam.Plugins.PluginBase):
                                          *get_get_set_functions(name))
         return True
 
+    def area_realize(self, gl_area):
+        error = gl_area.get_error()
+        if error is not None:
+            self.log.warning("OpenGL errors encountered: maybe your graphics card is too old - %s",
+                             error)
+
     def teardown(self):
         if self.gui:
             self.core.unregister_ui("preferences", self.gui.get_object("OpenGLPrefTab"))
@@ -235,7 +243,7 @@ class OpenGLWindow(pycam.Plugins.PluginBase):
             self.unregister_event_handlers(self._event_handlers)
             # the area will be created during setup again
             self.gui.get_object("OpenGLBox").remove(self.area)
-            self.area = None
+            #self.area = None
             self.core.unregister_ui("preferences", self.gui.get_object("DisplayItemsPrefTab"))
             self.core.unregister_ui("preferences", self.gui.get_object("OpenGLPrefTab"))
             self.core.unregister_ui("opengl_window", self.gui.get_object("ViewControls"))
@@ -464,10 +472,11 @@ class OpenGLWindow(pycam.Plugins.PluginBase):
     def gtkgl_refresh(func):
         def gtkgl_refresh_wrapper(self, *args, **kwargs):
             prev_mode = GL.glGetIntegerv(GL.GL_MATRIX_MODE)
-            GL.glMatrixMode(GL.GL_MODELVIEW)
+            #GL.glMatrixMode(GL.GL_MODELVIEW)
             # clear the background with the configured color
             bg_col = self.core.get("color_background")
             GL.glClearColor(bg_col["red"], bg_col["green"], bg_col["blue"], 0.0)
+            #GL.glClearColor (0.5, 0.5, 0.5, 1.0)
             GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
             result = func(self, *args, **kwargs)
             self.camera.position_camera()
@@ -476,21 +485,25 @@ class OpenGLWindow(pycam.Plugins.PluginBase):
             lightpos = (v["center"][0] + v["distance"][0],
                         v["center"][1] + v["distance"][1],
                         v["center"][2] + v["distance"][2])
-            GL.glLightfv(GL.GL_LIGHT1, GL.GL_POSITION, lightpos)
+            #GL.glLightfv(GL.GL_LIGHT1, GL.GL_POSITION, lightpos)
             # trigger the visualization of all items
             self.core.emit_event("visualize-items")
             GL.glMatrixMode(prev_mode)
             GL.glFlush()
-            self.area.get_gl_drawable().swap_buffers()
+            #self.area.get_gl_drawable().swap_buffers()
             return result
         return gtkgl_refresh_wrapper
 
-    def glsetup(self, widget=None):
-        if not GLUT.glutInit:
-            self.log.error("Failed to execute 'GLUT.glutInit': probably you need to install the"
-                           "C library providing GLUT functions (e.g. 'freeglut3-dev' or "
-                           "'freeglut-devel'). OpenGL visualization is disabled.")
-            return
+    def _render_area(self, area, context):
+        #self.glsetup (area, context)
+        #bg_col = self.core.get("color_background")
+        GL.glClearColor (0.1, 0.7, 0.8, 1.0)
+        GL.glClear (GL.GL_COLOR_BUFFER_BIT)
+        GL.glFlush()
+        return True
+
+    def glsetup (self, widget = None, context = None):
+        self.log.debug("glsetup start")
         GLUT.glutInit()
         GLUT.glutInitDisplayMode(GLUT.GLUT_RGBA | GLUT.GLUT_DOUBLE | GLUT.GLUT_DEPTH
                                  | GLUT.GLUT_MULTISAMPLE | GLUT.GLUT_ALPHA | GLUT.GLUT_ACCUM)
@@ -534,7 +547,7 @@ class OpenGLWindow(pycam.Plugins.PluginBase):
         GL.glLoadIdentity()
         GL.glMatrixMode(GL.GL_PROJECTION)
         GL.glLoadIdentity()
-        GL.glViewport(0, 0, self.area.allocation.width, self.area.allocation.height)
+        GL.glViewport(0, 0, 30, 30)
         # lighting
         GL.glLightModeli(GL.GL_LIGHT_MODEL_LOCAL_VIEWER, GL.GL_TRUE)
         # Light #1
@@ -572,6 +585,8 @@ class OpenGLWindow(pycam.Plugins.PluginBase):
         GL.glColorMaterial(GL.GL_FRONT_AND_BACK, GL.GL_SPECULAR)
 #       GL.glColorMaterial(GL.GL_FRONT_AND_BACK, GL.GL_EMISSION)
         GL.glEnable(GL.GL_COLOR_MATERIAL)
+        self.log.debug("glsetup stop")
+        return True
 
     def destroy(self, widget=None, data=None):
         self.hide()
@@ -581,17 +596,18 @@ class OpenGLWindow(pycam.Plugins.PluginBase):
 
     def gtkgl_functionwrapper(function):
         def gtkgl_functionwrapper_function(self, *args, **kwords):
-            gldrawable = self.area.get_gl_drawable()
-            if not gldrawable:
-                return
-            glcontext = self.area.get_gl_context()
-            if not gldrawable.gl_begin(glcontext):
-                return
+            #gldrawable = self.area.get_gl_drawable()
+            #if not gldrawable:
+            #    return
+            glcontext = self.area.get_context()
+            #return glcontext
+            #if not gldrawable.gl_begin(glcontext):
+            #    return
             if not self.initialized:
                 self.glsetup()
                 self.initialized = True
             result = function(self, *args, **kwords)
-            gldrawable.gl_end()
+            #gldrawable.gl_end()
             return result
         return gtkgl_functionwrapper_function
 
@@ -883,8 +899,8 @@ class Camera(object):
     def position_camera(self):
         width, height = self._get_screen_dimensions()
         prev_mode = GL.glGetIntegerv(GL.GL_MATRIX_MODE)
-        GL.glMatrixMode(GL.GL_PROJECTION)
-        GL.glLoadIdentity()
+        #GL.glMatrixMode(GL.GL_PROJECTION)
+        #GL.glLoadIdentity()
         v = self.view
         # position the light according to the current bounding box
         light_pos = [0, 0, 0]
@@ -892,17 +908,18 @@ class Camera(object):
         if None not in low and None not in high:
             for index in range(3):
                 light_pos[index] = 2 * (high[index] - low[index])
-        GL.glLightfv(GL.GL_LIGHT0, GL.GL_POSITION, (light_pos[0], light_pos[1], light_pos[2], 0.0))
+        #GL.glLightfv(GL.GL_LIGHT0, GL.GL_POSITION, (light_pos[0], light_pos[1], light_pos[2], 0.0))
         # position the camera
         camera_position = (v["center"][0] + v["distance"][0],
                            v["center"][1] + v["distance"][1],
                            v["center"][2] + v["distance"][2])
         # position a second light at camera position
-        GL.glLightfv(GL.GL_LIGHT1, GL.GL_POSITION, (camera_position[0], camera_position[1],
-                                                    camera_position[2], 0.0))
+        #GL.glLightfv(GL.GL_LIGHT1, GL.GL_POSITION, (camera_position[0], camera_position[1],
+        #                                            camera_position[2], 0.0))
         if self.core.get("view_perspective"):
             # perspective view
-            GLU.gluPerspective(v["fovy"], (0.0 + width) / height, v["znear"], v["zfar"])
+            pass
+            #GLU.gluPerspective(v["fovy"], (0.0 + width) / height, v["znear"], v["zfar"])
         else:
             # parallel projection
             # This distance calculation is completely based on trial-and-error.
@@ -916,10 +933,10 @@ class Camera(object):
             near = v["center"][2] - 2 * sin_factor
             far = v["center"][2] + 2 * sin_factor
             GL.glOrtho(left, right, bottom, top, near, far)
-        GLU.gluLookAt(camera_position[0], camera_position[1], camera_position[2],
-                      v["center"][0], v["center"][1], v["center"][2],
-                      v["up"][0], v["up"][1], v["up"][2])
-        GL.glMatrixMode(prev_mode)
+        #GLU.gluLookAt(camera_position[0], camera_position[1], camera_position[2],
+                      #v["center"][0], v["center"][1], v["center"][2],
+                      #v["up"][0], v["up"][1], v["up"][2])
+        #GL.glMatrixMode(prev_mode)
 
     def shift_view(self, x_dist=0, y_dist=0):
         obj_dim = []

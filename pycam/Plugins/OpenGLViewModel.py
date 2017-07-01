@@ -81,9 +81,9 @@ class OpenGLViewModel(pycam.Plugins.PluginBase):
                 model = model_dict.model
                 col = model_dict["color"]
                 color = (col["red"], col["green"], col["blue"], col["alpha"])
-                GL.glColor4f(*color)
+                #GL.glColor4f(*color)
                 # reset the material color
-                GL.glMaterial(GL.GL_FRONT_AND_BACK, GL.GL_AMBIENT_AND_DIFFUSE, color)
+                #GL.glMaterial(GL.GL_FRONT_AND_BACK, GL.GL_AMBIENT_AND_DIFFUSE, color)
                 # we need to wait until the color change is active
                 GL.glFinish()
                 if self.core.get("opengl_cache_enable"):
@@ -95,7 +95,7 @@ class OpenGLViewModel(pycam.Plugins.PluginBase):
                 if do_caching and key not in self._cache:
                     # Rendering a display list takes less than 5% of the time
                     # for a complete rebuild.
-                    list_index = GL.glGenLists(1)
+                    list_index = 0 #GL.glGenLists(1)
                     if list_index > 0:
                         # Somehow "GL_COMPILE_AND_EXECUTE" fails - we render
                         # it later.
@@ -159,7 +159,7 @@ class OpenGLViewModelTriangle(pycam.Plugins.PluginBase):
                     normal = calc_normal(pnormalized(t.normal), vertices[p])
                     GL.glNormal3f(normal[0], normal[1], normal[2])
                     GL.glVertex3f(p[0], p[1], p[2])
-            GL.glEnd()
+            #GL.glEnd()
             removal_list.append(index)
         # remove all models that we processed
         removal_list.reverse()
